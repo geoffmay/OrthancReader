@@ -1,0 +1,13 @@
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\obj\Debug\OrthancReader.csprojResolveAssemblyReference.cache
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\obj\Debug\OrthancReader.Properties.Resources.resources
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\obj\Debug\OrthancReader.csproj.GenerateResource.cache
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\obj\Debug\OrthancReader.csproj.CoreCompileInputs.cache
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\bin\Debug\OrthancReader.exe.config
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\bin\Debug\OrthancReader.exe
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\bin\Debug\OrthancReader.pdb
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\obj\Debug\OrthancReader.exe
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\obj\Debug\OrthancReader.pdb
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\bin\Debug\Newtonsoft.Json.dll
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\bin\Debug\Newtonsoft.Json.xml
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\obj\Debug\OrthancReader.csproj.CopyComplete
+C:\Users\Eeg\source\repos\OrthancReader\OrthancReader\obj\Debug\OrthancReader.Form1.resources
