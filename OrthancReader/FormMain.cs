@@ -10,16 +10,23 @@ using System.Windows.Forms;
 
 namespace OrthancReader
 {
-    public partial class Form1 : Form
+    public partial class FormMain : Form
     {
         Timer timer;
-        public Form1()
+        public FormMain()
         {
+
+            this.FormClosed += FormMain_FormClosed;
             InitializeComponent();
             timer = new Timer();
             timer.Interval = 1000;
             timer.Tick += Timer_Tick;
             timer.Start();
+        }
+
+        private void FormMain_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            Orthanc.SaveConfig();
         }
 
         private void Timer_Tick(object sender, EventArgs e)
@@ -47,6 +54,29 @@ namespace OrthancReader
 
         private void textBoxOrthancFolder_TextChanged(object sender, EventArgs e)
         {
+
+        }
+
+        private void Button2_Click(object sender, EventArgs e)
+        {
+            FolderBrowserDialog dg = new FolderBrowserDialog();
+            dg.SelectedPath = textBoxDicomFolder.Text;
+            if (dg.ShowDialog() == DialogResult.OK)
+            {
+                textBoxDicomFolder.Text = dg.SelectedPath;
+            }
+        }
+
+        private void FormMain_Load(object sender, EventArgs e)
+        {
+            copyEverything();
+        }
+
+        private void copyEverything()
+        {
+            Orthanc.CreateNeededFolders();
+            string[] instances = Orthanc.GetInstances();
+            Orthanc.CopyFiles(instances);
 
         }
     }

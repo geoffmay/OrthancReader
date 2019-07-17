@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 //using NewtonSoft.Json;
 using Newtonsoft.Json;
@@ -17,7 +19,12 @@ namespace OrthancReader
         static WebClient getClient = new WebClient();
         static HttpClient postClient = new HttpClient();
         static string lastQueriedInstance = "";
-        public static int instanceCount = -1;
+        public static long instanceCount = -1;
+        public static long instanceCopyNumber = -1;
+        static string configFile = "config.txt";
+        public static string rootFolder = @"C:\Orthanc\FIRMM";
+
+
         #endregion
 
         #region utility
@@ -80,32 +87,224 @@ namespace OrthancReader
             instanceCount = instances.Length;
             return instances;
         }
-        public static string GetStudies()
+        public static string[] GetStudies()
         {
             string address = restUri + "studies";
             string page = getClient.DownloadString(address);
-            return page;
+            return parseArray(page);
+        }
+        public static string[] GetPatients()
+        {
+            string address = restUri + "patients";
+            string page = getClient.DownloadString(address);
+            return parseArray(page);
         }
         public static void DownloadFile(string instanceCode, string filename)
         {
         }
-        public static void GetInfo(string instanceCode)
+        public static Patient GetPatientWithInstanceCode(string instanceCode)
         {
-            string instanceText = GetInstance(instanceCode);
-            string parentSeries = GetValue(instanceText, "ParentSeries");
-            string seriesText = getClient.DownloadString(restUri + "series/" + parentSeries);
-            string seriesDescription = GetValue(seriesText, "SeriesDescription");
-            string parentStudy = GetValue(seriesText, "ParentStudy");
-            //the study will just be a list of series.
-            try
+            Instance instance = GetInstance(instanceCode);
+            Series series = GetSeries(instance.ParentSeries);
+            Study study = GetStudy(series.ParentStudy);
+            Patient patient = GetPatient(study.ParentPatient);
+
+            // getClient.DownloadString(restUri + "series/" + instance.ParentSeries);
+            //string parentStudy = GetValue(seriesText, "ParentStudy");
+            //string studyText;
+            //string patientId;
+
+            //string seriesDescription = GetValue(seriesText, "SeriesDescription");
+            //studyText = getClient.DownloadString(restUri + "studies/" + parentStudy);
+            //patientId = GetValue(studyText, "PatientID");
+            return patient;
+        }
+
+        public static string GetPath(string instanceCode)
+        {
+            //StringBuilder path = new StringBuilder();
+            //string instanceText = GetInstance(instanceCode);
+            //string seriesCode = GetValue(instanceText, "ParentSeries");
+            //string seriesText = getClient.DownloadString(restUri + "series/" + seriesCode);
+            //string seriesDescription = GetValue(seriesText, "SeriesDescription");
+            //string studyCode = GetValue(seriesText, "ParentStudy");
+            //string studyText = getClient.DownloadString(restUri + "studies/" + studyCode); 
+            //string patientId = GetValue(studyText, "PatientID");
+
+
+            ////debug
+            //string patientCode = GetValue(studyText, "ParentPatient");
+            //var patientText = GetPatient(patientCode);
+            ////end debug
+            ///
+            Instance instance = GetInstance(instanceCode);
+            Series series = GetSeries(instance.ParentSeries);
+            Study study = GetStudy(series.ParentStudy);
+            //Patient patient = GetPatient(study.ParentPatient);
+            return getInstanceFilename(study, series, instance);
+
+
+
+            //string value = study.PatientMainDicomTags.PatientID + "\\" + study.MainDicomTags.RequestedProcedureDescription + "\\" + series.MainDicomTags.SeriesNumber + "\\" + instance.IndexInSeries;
+
+            //string protocolName = GetValue(studyText, "ProtocolName");
+
+            //path.Append(patientId);
+            //path.Append("\\");
+
+
+
+            //return path.ToString();
+
+            //return value;
+        }
+
+        public static string getPatientFolder(Study study)
+        {
+            if (rootFolder[rootFolder.Length - 1] != '\\')
             {
-                string studyText = getClient.DownloadString(restUri + "study/" + parentStudy);
+                rootFolder = rootFolder + "\\";
             }
-            catch(WebException ex)
+            return rootFolder + study.PatientMainDicomTags.PatientName + "\\";
+        }
+        public static string getStudyFolder(Study study)
+        {
+            DateTime date = DateTime.ParseExact(study.MainDicomTags.StudyDate, "yyyyMMdd", null);
+            DateTime date2 = date.AddYears(-28 * 12);
+            date2 = date2.AddDays(-70 * 7);
+            string dateString = date2.ToString("yyyyMMdd");
+            return getPatientFolder(study) + dateString + "\\";
+        }
+        public static string getSeriesFolder(Study study, Series series)
+        {
+            return getStudyFolder(study) + series.MainDicomTags.ProtocolName + "\\";
+        }
+        public static string getSeriesRunFolder(Study study, Series series)
+        {
+            return getSeriesFolder(study, series) + series.MainDicomTags.SeriesNumber + "\\";
+        }
+        public static string getInstanceFilename(Study study, Series series, Instance instance)
+        {
+            return getSeriesRunFolder(study, series) + instance.MainDicomTags.InstanceNumber;
+
+        }
+        public static string getInstanceFilename(string instanceCode)
+        {
+            Instance instance = GetInstance(instanceCode);
+            Series series = GetSeries(instance.ParentSeries);
+            Study study = GetStudy(series.ParentStudy);
+
+            return getSeriesRunFolder(study, series) + instance.MainDicomTags.InstanceNumber + ".dcm";
+
+        }
+
+        public async static void CopyFiles(string[] instances)
+        {
+            CreateNeededFolders();
+            for (int i = 0; i < instances.Length; i++)
             {
-                //do nothing
+                string filename = getInstanceFilename(instances[i]);
+                string uri = restUri + "instances/" + instances[i] + "/file";
+                try
+                {
+                    getClient.DownloadFile(uri, filename);
+                    int dummy = 1;
+                }
+                catch (Exception ex)
+                {
+                }
+            }
+        }
+
+        public static void CreateNeededFolders()
+        {
+            if(!Directory.Exists(rootFolder))
+            {
+                throw new ApplicationException("trying to write to rootFolder that doesn't exist: " + rootFolder);
+            }
+            string[] patientCodes = GetPatients();
+            for (int i = 0; i < patientCodes.Length; i++)
+            {
+                Patient patient = GetPatient(patientCodes[i]);
+                for (int j = 0; j < patient.Studies.Length; j++)
+                {
+                    Study study = GetStudy(patient.Studies[j]);
+                    string patientFolder = getPatientFolder(study);
+
+                    if (!Directory.Exists(patientFolder))
+                    {
+                        Directory.CreateDirectory(patientFolder);
+                    }
+
+                    string studyFolder = getStudyFolder(study);
+                    if(!Directory.Exists(studyFolder))
+                    {
+                        Directory.CreateDirectory(studyFolder);
+                    }
+                    for (int k = 0; k < study.Series.Length; k++)
+                    {
+                        Series series = GetSeries(study.Series[k]);
+                        string seriesFolder = getSeriesFolder(study, series);
+                        string seriesRunFolder = getSeriesRunFolder(study, series);
+                        //debug
+                        if (study.PatientMainDicomTags.PatientName.Equals("PHANTOMNETZ"))
+                        {
+                            int dummy = 1;
+                        }
+                        //end debug
+                        if (!Directory.Exists(seriesFolder))
+                        {
+                            Directory.CreateDirectory(seriesFolder);
+                        }
+                        if (!Directory.Exists(seriesRunFolder))
+                        {
+                            Directory.CreateDirectory(seriesRunFolder);
+                        }
+                        //for (int m = 0; m < series.Instances.Length; m++)
+                        //{
+                        //    Instance instance = GetInstance(series.Instances[m]);
+                        //    //if(study.ID.Equals(rsFC))
+                        //    //study.PatientMainDicomTags.PatientID + "\\" + study.MainDicomTags.RequestedProcedureDescription + "\\" + series.MainDicomTags.SeriesNumber + "\\" + instance.IndexInSeries;
+                        //}
+                    }
+                }
+                //var studies = JsonConvert.DeserializeObject<string[]>(studyCodes as string); 
             }
 
+        }
+
+        public static void SaveConfig()
+        {
+            using (StreamWriter sWriter = new StreamWriter(configFile))
+            {
+                sWriter.WriteLine(restUri);
+                sWriter.WriteLine(lastQueriedInstance);
+                sWriter.WriteLine(instanceCount);
+
+            }
+        }
+        public static void LoadConfig()
+        {
+            int maxErrors = 5;
+            int errorCount = 0;
+            bool success = false;
+            while (!success && errorCount < maxErrors)
+            {
+                try
+                {
+                    using (StreamReader sReader = new StreamReader(configFile))
+                    {
+                        restUri = sReader.ReadLine();
+                        lastQueriedInstance = sReader.ReadLine();
+                        instanceCount = long.Parse(sReader.ReadLine());
+                    }
+                }
+                catch(Exception ex)
+                {
+                    errorCount++;
+                    Thread.Sleep(100);
+                }
+            }
         }
         #endregion
 
@@ -140,15 +339,15 @@ namespace OrthancReader
             string time = GetValue(page, "\"InstanceCreationTime\" : \"");
             return DateTime.ParseExact(date + time, "yyyyMMddHHmmss.fff", null);
 
-             double.Parse(date + time);
+            double.Parse(date + time);
         }
         private static string GetValue(string page, string target)
         {
-            if(target == null || target.Length == 0)
+            if (target == null || target.Length == 0)
             {
                 throw new ArgumentException("you must specify a target");
             }
-            if(target[0] != '"')
+            if (target[0] != '"')
             {
                 target = "\"" + target + "\" : \"";
             }
@@ -161,12 +360,35 @@ namespace OrthancReader
             }
             return retVal;
         }
-        public static string GetInstance(string instance)
+        public static Instance GetInstance(string instanceCode)
         {
-            string address = restUri + "instances/" + instance;
+            string address = restUri + "instances/" + instanceCode;
             string page = getClient.DownloadString(address);
-            object obj = Newtonsoft.Json.JsonConvert.DeserializeObject(page);
-            return page;
+            //object obj = Newtonsoft.Json.JsonConvert.DeserializeObject(page);
+            Instance ins = JsonConvert.DeserializeObject<Instance>(page);
+            return ins;
+        }
+        //public static string GetPatizent(string patientId)
+        public static Patient GetPatient(string patientId)
+        {
+            string address = restUri + "patients/" + patientId;
+            string page = getClient.DownloadString(address);
+            Patient p = JsonConvert.DeserializeObject<Patient>(page);
+            return p;
+        }
+        public static Study GetStudy(string studyId)
+        {
+            string address = restUri + "studies/" + studyId;
+            string page = getClient.DownloadString(address);
+            Study p = JsonConvert.DeserializeObject<Study>(page);
+            return p;
+        }
+        public static Series GetSeries(string seriesId)
+        {
+            string address = restUri + "series/" + seriesId;
+            string page = getClient.DownloadString(address);
+            Series p = JsonConvert.DeserializeObject<Series>(page);
+            return p;
         }
     }
 }

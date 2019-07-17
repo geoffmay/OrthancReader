@@ -15,18 +15,21 @@ namespace OrthancReader
         [STAThread]
         static void Main()
         {
-
             testObject();
             //MakeCatalog();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Form1());
+            Application.Run(new FormMain());
         }
         static async void testObject()
         {
-            string[] inst = Orthanc.GetRecentInstances();
+            string[] patients = Orthanc.GetPatients();
+            var patient = Orthanc.GetPatient(patients[patients.Length - 1]);
+
+            //string[] inst = Orthanc.GetRecentInstances();
             string[] instances = Orthanc.GetInstances();
-            Orthanc.GetInfo(instances[0]);
+            //string patientId = Orthanc.GetPatientId(instances[instances.Length-1]);
+            string relativePath = Orthanc.GetPath(instances[instances.Length - 1]);
 
         }
         static void MakeCatalog()
